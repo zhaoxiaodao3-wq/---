@@ -3,31 +3,15 @@ import { Upload, Button, Image, Space, message, Spin } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { saveImage, getImageURL, deleteImage } from '../services/imageService';
 
-// 单张图片上传组件，使用 IndexedDB 存储
+// 单张图片上传组件，图片存储在后端
 // value: 图片 key，onChange: (key|null) => void
 export default function ImageUpload({ value, onChange }) {
   const [url, setUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    let revoke = null;
-    let active = true;
-    if (value) {
-      setLoading(true);
-      getImageURL(value).then((u) => {
-        if (active) {
-          setUrl(u);
-          revoke = u;
-        }
-        setLoading(false);
-      });
-    } else {
-      setUrl(null);
-    }
-    return () => {
-      active = false;
-      if (revoke) URL.revokeObjectURL(revoke);
-    };
+    // getImageURL 为同步函数，直接返回 URL 字符串
+    setUrl(value ? getImageURL(value) : null);
   }, [value]);
 
   const handleUpload = async (file) => {
