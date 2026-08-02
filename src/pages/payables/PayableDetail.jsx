@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Drawer, Descriptions, Table, Tag, Button, Typography, Empty, Timeline, Space } from 'antd';
 import { CheckOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { getOrders } from '../../services/orderService';
@@ -9,11 +9,21 @@ import { PAYABLE_STATUS_ENUM } from '../../constants/options';
 import { COLORS } from '../../utils/theme';
 
 export default function PayableDetail({ open, payable, onClose, onSettle }) {
+  const [orderMap, setOrderMap] = useState({});
+  const [belongText, setBelongText] = useState('-');
+
+  useEffect(() => {
+    if (!payable) return;
+    getOrders().then((orders) => {
+      const m = {};
+      orders.forEach((o) => (m[o.id] = o.title));
+      setOrderMap(m);
+      setBelongText(payable.belongType === '订单支出' ? m[payable.orderId] || '-' : payable.month);
+    });
+  }, [payable]);
+
   if (!payable) return <Drawer open={open} onClose={onClose} />;
 
-  const orderMap = {};
-  getOrders().forEach((o) => (orderMap[o.id] = o.title));
-  const belongText = payable.belongType === '订单支出' ? orderMap[payable.orderId] || '-' : payable.month;
   const status = payableStatusOf(payable);
   const remaining = payableRemaining(payable);
 

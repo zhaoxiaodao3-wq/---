@@ -33,7 +33,7 @@ export default function SettleModal({ open, payable, onClose, onSuccess }) {
     return Math.round((n + Number.EPSILON) * 100) / 100;
   }
 
-  const handleOk = () => {
+  const handleOk = async () => {
     if (remaining <= 0) {
       message.warning('该应付款已结清');
       return;
@@ -46,7 +46,7 @@ export default function SettleModal({ open, payable, onClose, onSuccess }) {
       message.warning(`结清金额不能超过剩余未结 ${yuan(remaining)}`);
       return;
     }
-    addSettlement(payable.id, {
+    await addSettlement(payable.id, {
       amount: settleAmount,
       mode,
       items: mode === SETTLE_MODE_ITEM ? payable.subItems.filter((it) => checked.includes(it.id)).map((it) => it.name) : [],

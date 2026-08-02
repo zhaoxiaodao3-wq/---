@@ -62,8 +62,7 @@ export default function BasicLayout() {
         },
       });
     } else if (key === 'backup') {
-      exportBackup();
-      message.success('已导出全量数据备份（JSON）');
+      exportBackup().then(() => message.success('已导出全量数据备份（JSON）')).catch((e) => message.error('导出失败：' + e.message));
     } else if (key === 'restore') {
       fileRef.current?.click();
     }
@@ -150,8 +149,7 @@ export default function BasicLayout() {
             type="text"
             icon={<DownloadOutlined />}
             onClick={() => {
-              exportBackup();
-              message.success('已导出全量数据备份（JSON）');
+              exportBackup().then(() => message.success('已导出全量数据备份（JSON）')).catch((e) => message.error('导出失败：' + e.message));
             }}
             style={{ color: '#1f1f1f' }}
           >

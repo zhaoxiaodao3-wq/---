@@ -46,7 +46,7 @@ export default function PayableList() {
   };
 
   const request = async (params) => {
-    let data = getPayables();
+    let data = await getPayables();
     if (params.dateRange?.length === 2) {
       const [s, e] = params.dateRange;
       data = data.filter((x) => x.date >= s && x.date <= e);
@@ -94,8 +94,8 @@ export default function PayableList() {
     message.success('导出成功');
   };
 
-  const handleDelete = (id) => {
-    deletePayable(id);
+  const handleDelete = async (id) => {
+    await deletePayable(id);
     message.success('已删除');
     actionRef.current?.reload();
   };

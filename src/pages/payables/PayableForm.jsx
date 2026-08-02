@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ProForm,
   ProFormText,
@@ -19,7 +19,8 @@ import { num, round2, todayStr, currentMonthStr } from '../../utils/format';
 
 export default function PayableForm({ open, record, defaultOrderId, onClose, onSuccess }) {
   const formRef = useRef();
-  const [orders] = useState(() => orderOptions());
+  const [orders, setOrders] = useState([]);
+  useEffect(() => { orderOptions().then(setOrders); }, []);
   const editing = record || null;
 
   const orderSelectOptions = orders.map((o) => ({ label: o.label, value: o.id }));
@@ -76,7 +77,7 @@ export default function PayableForm({ open, record, defaultOrderId, onClose, onS
       month: values.belongType === '月度支出' ? values.month : undefined,
     };
     if (editing) payable.id = editing.id;
-    upsertPayable(payable);
+    await upsertPayable(payable);
     message.success(editing ? '应付款已更新' : '应付款已创建');
     onSuccess?.();
     onClose?.();

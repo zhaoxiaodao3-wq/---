@@ -1,61 +1,22 @@
-// IndexedDB 图片存储：避免 localStorage 5MB 限制
+// 图片存储服务（后端 API，替代 IndexedDB）
+import api from './apiClient';
 
-const DB_NAME = 'sales-ledger-images';
-const STORE = 'images';
-const VERSION = 1;
+const BASE = import.meta.env.VITE_API_BASE || '/api';
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE);
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+export async function saveImage(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const data = await api.upload('/images', formData);
+  return data.key;
 }
 
-// 保存图片 Blob，返回 key
-export async function saveImage(blob) {
-  const db = await openDB();
-  const key = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put(blob, key);
-    tx.oncomplete = () => resolve(key);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-// 读取图片 Blob，转为 objectURL
-export async function getImageURL(key) {
+// 直接返回图片 URL（不是 blob URL），前端 <Image> 可直接使用
+export function getImageURL(key) {
   if (!key) return null;
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readonly');
-    const req = tx.objectStore(STORE).get(key);
-    req.onsuccess = () => {
-      if (req.result) {
-        resolve(URL.createObjectURL(req.result));
-      } else {
-        resolve(null);
-      }
-    };
-    req.onerror = () => reject(req.error);
-  });
+  return `${BASE}/images/${key}`;
 }
 
-// 删除图片
 export async function deleteImage(key) {
   if (!key) return;
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).delete(key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  await api.del(`/images/${key}`);
 }

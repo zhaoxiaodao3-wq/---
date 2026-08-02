@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import { Button, Popconfirm, message, Tag, Tooltip } from 'antd';
 import {
@@ -24,15 +24,19 @@ export default function ExpenseList() {
   const [filteredAll, setFilteredAll] = useState([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [orderMap, setOrderMap] = useState({});
 
-  const orderMap = () => {
-    const m = {};
-    getOrders().forEach((o) => (m[o.id] = o.title));
-    return m;
-  };
+  useEffect(() => {
+    (async () => {
+      const list = await getOrders();
+      const m = {};
+      list.forEach((o) => (m[o.id] = o.title));
+      setOrderMap(m);
+    })();
+  }, []);
 
   const request = async (params) => {
-    let data = getExpenses();
+    let data = await getExpenses();
     if (params.dateRange?.length === 2) {
       const [s, e] = params.dateRange;
       data = data.filter((x) => x.date >= s && x.date <= e);
@@ -53,7 +57,6 @@ export default function ExpenseList() {
 
   const handleExport = () => {
     if (filteredAll.length === 0) return message.warning('当前筛选无数据可导出');
-    const m = orderMap();
     exportExcel({
       filename: `支出记录_${new Date().toISOString().slice(0, 10)}`,
       columns: [
@@ -68,7 +71,7 @@ export default function ExpenseList() {
       dataSource: filteredAll.map((x) => ({
         date: x.date,
         belongType: x.belongType,
-        belong: x.belongType === '订单支出' ? m[x.orderId] || '-' : x.month,
+        belong: x.belongType === '订单支出' ? orderMap[x.orderId] || '-' : x.month,
         title: x.title,
         amount: x.amount,
         source: x.source,
@@ -78,8 +81,8 @@ export default function ExpenseList() {
     message.success('导出成功');
   };
 
-  const handleDelete = (id) => {
-    deleteExpense(id);
+  const handleDelete = async (id) => {
+    await deleteExpense(id);
     message.success('已删除');
     actionRef.current?.reload();
   };
@@ -99,7 +102,7 @@ export default function ExpenseList() {
       dataIndex: 'belong',
       hideInSearch: true,
       width: 160,
-      render: (_, r) => (r.belongType === '订单支出' ? orderMap()[r.orderId] || '-' : r.month),
+      render: (_, r) => (r.belongType === '订单支出' ? orderMap[r.orderId] || '-' : r.month),
     },
     { title: '支出标题', dataIndex: 'title', width: 140 },
     {

@@ -41,9 +41,9 @@ export default function OrderList() {
   const [detailOpen, setDetailOpen] = useState(false);
 
   const request = async (params) => {
-    const expenses = getExpenses();
-    const payables = getPayables();
-    let data = getOrders();
+    const expenses = await getExpenses();
+    const payables = await getPayables();
+    let data = await getOrders();
 
     if (params.dateRange?.length === 2) {
       const [s, e] = params.dateRange;

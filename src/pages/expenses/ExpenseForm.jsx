@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ProForm,
   ProFormText,
@@ -18,9 +18,18 @@ import { num, todayStr, currentMonthStr } from '../../utils/format';
 
 export default function ExpenseForm({ open, record, defaultOrderId, onClose, onSuccess }) {
   const formRef = useRef();
-  const [titleHistory, setTitleHistory] = useState(getOptions().expenseTitleHistory);
-  const [orders] = useState(() => orderOptions());
+  const [titleHistory, setTitleHistory] = useState([]);
+  const [orders, setOrders] = useState([]);
   const editing = record || null;
+
+  useEffect(() => {
+    (async () => {
+      const opts = await getOptions();
+      setTitleHistory(opts.expenseTitleHistory || []);
+      const list = await orderOptions();
+      setOrders(list);
+    })();
+  }, []);
 
   const orderSelectOptions = orders.map((o) => ({ label: o.label, value: o.id }));
 
@@ -55,8 +64,8 @@ export default function ExpenseForm({ open, record, defaultOrderId, onClose, onS
       month: values.belongType === '月度支出' ? values.month : undefined,
     };
     if (editing) expense.id = editing.id;
-    upsertExpense(expense);
-    pushExpenseTitleHistory(expense.title);
+    await upsertExpense(expense);
+    await pushExpenseTitleHistory(expense.title);
     message.success(editing ? '支出已更新' : '支出已创建');
     onSuccess?.();
     onClose?.();

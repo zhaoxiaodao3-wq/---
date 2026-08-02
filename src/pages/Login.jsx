@@ -8,15 +8,16 @@ export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  const onFinish = (values) => {
+  const onFinish = async (values) => {
     setLoading(true);
-    const res = login(values.username, values.password);
-    setLoading(false);
-    if (res.ok) {
+    try {
+      await login(values.username, values.password);
       message.success('登录成功');
       navigate('/', { replace: true });
-    } else {
-      message.error(res.message);
+    } catch (e) {
+      message.error(e.message || '登录失败');
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -1,11 +1,6 @@
-// Excel 导出与全量数据备份
-
+// Excel 导出（纯前端）与全量数据备份（后端 API）
 import * as XLSX from 'xlsx';
-import { db } from '../services/db';
-import { getOptions } from '../services/optionService';
-import { getOrders } from '../services/orderService';
-import { getExpenses } from '../services/expenseService';
-import { getPayables } from '../services/payableService';
+import api from '../services/apiClient';
 
 // columns: [{ title, dataIndex }]
 // dataSource: 行对象数组（值已格式化为展示字符串）
@@ -14,7 +9,6 @@ export function exportExcel({ filename, columns, dataSource }) {
   const rows = dataSource.map((row) => columns.map((c) => row[c.dataIndex]));
   const aoa = [header, ...rows];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  // 自动列宽
   const colWidths = header.map((h, i) => ({
     wch: Math.max(10, h.length * 2, ...rows.map((r) => String(r[i] ?? '').length * 2)),
   }));
@@ -24,19 +18,14 @@ export function exportExcel({ filename, columns, dataSource }) {
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
 
-// 一键导出全量数据为 JSON 备份（防丢）
-export function exportBackup() {
-  const payload = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    options: getOptions(),
-    orders: getOrders(),
-    expenses: getExpenses(),
-    payables: getPayables(),
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: 'application/json',
+// 从后端导出全量 JSON 备份
+export async function exportBackup() {
+  const BASE = import.meta.env.VITE_API_BASE || '/api';
+  const res = await fetch(`${BASE}/backup/export`, {
+    headers: { Authorization: `Bearer ${api.getToken()}` },
   });
+  if (!res.ok) throw new Error('备份导出失败');
+  const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -45,28 +34,18 @@ export function exportBackup() {
   URL.revokeObjectURL(url);
 }
 
-// 当前数据库所有 key（供调试/清空）
-export function allKeys() {
-  return Object.keys(localStorage)
-    .filter((k) => k.startsWith(db.PREFIX))
-    .map((k) => k.slice(db.PREFIX.length));
-}
-
-// 从 JSON 备份文件恢复数据（覆盖现有）
+// 从 JSON 备份文件恢复（后端批量导入）
 export function importBackup(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const data = JSON.parse(reader.result);
         if (!data.version || !Array.isArray(data.orders)) {
           throw new Error('备份文件格式不正确');
         }
-        if (data.options) db.write('options', data.options);
-        db.write('orders', data.orders || []);
-        db.write('expenses', data.expenses || []);
-        db.write('payables', data.payables || []);
-        resolve({ ok: true, orders: data.orders.length, expenses: data.expenses?.length || 0, payables: data.payables?.length || 0 });
+        const res = await api.post('/backup/import', data);
+        resolve(res);
       } catch (e) {
         reject(e);
       }

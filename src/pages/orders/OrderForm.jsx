@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   ProForm,
   ProFormText,
@@ -23,7 +23,11 @@ import { num, round2, todayStr, yuan } from '../../utils/format';
 
 export default function OrderForm({ open, record, onClose, onSuccess }) {
   const formRef = useRef();
-  const [opts, setOpts] = useState(getOptions());
+  const [opts, setOpts] = useState(null);
+
+  useEffect(() => {
+    getOptions().then(setOpts);
+  }, []);
 
   const editing = record || null;
 
@@ -49,8 +53,8 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
         price: 0,
         manualTotal: false,
         totalAmount: 0,
-        channel: getOptions().channels[0],
-        payMethod: getOptions().payMethods[0],
+        channel: opts?.channels?.[0] || '微信',
+        payMethod: opts?.payMethods?.[0] || '现金',
       };
 
   const reAutoTotal = (all) => {
@@ -80,16 +84,17 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
       imageKey: values.imageKey || null,
     };
     if (editing) order.id = editing.id;
-    upsertOrder(order);
-    pushOrderTitleHistory(order.title);
+    await upsertOrder(order);
+    await pushOrderTitleHistory(order.title);
     message.success(editing ? '订单已更新' : '订单已创建');
     onSuccess?.();
     onClose?.();
   };
 
-  const handleAdd = (field, v) => {
-    addCustomOption(field, v);
-    setOpts(getOptions());
+  const handleAdd = async (field, v) => {
+    await addCustomOption(field, v);
+    const updated = await getOptions();
+    setOpts(updated);
   };
 
   return (

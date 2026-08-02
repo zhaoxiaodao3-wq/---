@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Drawer, Descriptions, Table, Button, Tag, Popconfirm, message, Divider, Typography, Image, Tooltip } from 'antd';
 import {
   PlusOutlined,
@@ -28,43 +28,41 @@ export default function OrderDetail({ open, orderId, onClose }) {
   const [payDetail, setPayDetail] = useState({ open: false, payable: null });
   const [imageUrl, setImageUrl] = useState(null);
 
-  const order = useMemo(() => (orderId ? getOrder(orderId) : null), [orderId, version]);
-  const expenses = useMemo(
-    () => getExpenses().filter((e) => e.belongType === '订单支出' && e.orderId === orderId),
-    [orderId, version]
-  );
-  const payables = useMemo(
-    () => getPayables().filter((p) => p.belongType === '订单支出' && p.orderId === orderId),
-    [orderId, version]
-  );
+  const [order, setOrder] = useState(null);
+  const [expenses, setExpenses] = useState([]);
+  const [payables, setPayables] = useState([]);
+
+  useEffect(() => {
+    if (!orderId) { setOrder(null); setExpenses([]); setPayables([]); return; }
+    let active = true;
+    (async () => {
+      const o = await getOrder(orderId);
+      const exps = await getExpenses({ belongType: '订单支出', orderId });
+      const pays = await getPayables({ belongType: '订单支出', orderId });
+      if (!active) return;
+      setOrder(o);
+      setExpenses(exps);
+      setPayables(pays);
+    })();
+    return () => { active = false; };
+  }, [orderId, version]);
 
   if (!order && open) return <Drawer open={open} onClose={onClose} />;
 
-  // 加载图片
+  // 加载图片（getImageURL 现在直接返回 URL，不需要异步）
   useEffect(() => {
-    let active = true;
-    let revoke = null;
     if (order?.imageKey) {
-      getImageURL(order.imageKey).then((u) => {
-        if (active) {
-          setImageUrl(u);
-          revoke = u;
-        }
-      });
+      setImageUrl(getImageURL(order.imageKey));
     } else {
       setImageUrl(null);
     }
-    return () => {
-      active = false;
-      if (revoke) URL.revokeObjectURL(revoke);
-    };
   }, [order?.imageKey]);
 
   const refresh = () => setVersion((v) => v + 1);
 
-  const orderExpense = orderExpenseAmount(order?.id, getExpenses());
-  const orderProfitVal = order ? orderProfit(order, getExpenses()) : 0;
-  const aggPayableStatus = aggregatePayableStatusForOrder(order?.id, getPayables());
+  const orderExpense = orderExpenseAmount(order?.id, expenses);
+  const orderProfitVal = order ? orderProfit(order, expenses) : 0;
+  const aggPayableStatus = aggregatePayableStatusForOrder(order?.id, payables);
 
   const expenseColumns = [
     { title: '支出日期', dataIndex: 'date', width: 110 },
@@ -79,7 +77,7 @@ export default function OrderDetail({ open, orderId, onClose }) {
         <Tooltip key="edit" title="编辑">
           <Button type="text" size="small" icon={<EditOutlined style={{ color: COLORS.warning }} />} onClick={() => setExpForm({ open: true, record: r })} />
         </Tooltip>,
-        <Popconfirm key="del" title="确认删除该支出？" onConfirm={() => { deleteExpense(r.id); message.success('已删除'); refresh(); }}>
+        <Popconfirm key="del" title="确认删除该支出？" onConfirm={async () => { await deleteExpense(r.id); message.success('已删除'); refresh(); }}>
           <Tooltip title="删除">
             <Button type="text" size="small" danger icon={<DeleteOutlined />} />
           </Tooltip>
