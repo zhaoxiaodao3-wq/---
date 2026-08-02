@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import { Button, Tag, Popconfirm, message, Tooltip } from 'antd';
 import {
@@ -38,12 +38,20 @@ export default function PayableList() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [settle, setSettle] = useState(null);
   const [settleOpen, setSettleOpen] = useState(false);
+  const [orderMap, setOrderMap] = useState({});
 
-  const orderMap = () => {
-    const m = {};
-    getOrders().forEach((o) => (m[o.id] = o.title));
-    return m;
-  };
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await getOrders();
+        const m = {};
+        list.forEach((o) => (m[o.id] = o.title));
+        setOrderMap(m);
+      } catch (e) {
+        /* 订单列表加载失败不影响应付款列表 */
+      }
+    })();
+  }, []);
 
   const request = async (params) => {
     let data = await getPayables();
@@ -67,7 +75,7 @@ export default function PayableList() {
 
   const handleExport = () => {
     if (filteredAll.length === 0) return message.warning('当前筛选无数据可导出');
-    const m = orderMap();
+    const m = orderMap;
     exportExcel({
       filename: `应付款_${new Date().toISOString().slice(0, 10)}`,
       columns: [
@@ -114,7 +122,7 @@ export default function PayableList() {
       dataIndex: 'belong',
       hideInSearch: true,
       width: 150,
-      render: (_, r) => (r.belongType === '订单支出' ? orderMap()[r.orderId] || '-' : r.month),
+      render: (_, r) => (r.belongType === '订单支出' ? orderMap[r.orderId] || '-' : r.month),
     },
     { title: '供货商', dataIndex: 'supplier', width: 120 },
     { title: '应付总额', dataIndex: 'totalAmount', hideInSearch: true, width: 110, render: (_, r) => yuan(r.totalAmount) },

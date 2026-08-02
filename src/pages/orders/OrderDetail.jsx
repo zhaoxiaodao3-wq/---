@@ -47,8 +47,6 @@ export default function OrderDetail({ open, orderId, onClose }) {
     return () => { active = false; };
   }, [orderId, version]);
 
-  if (!order && open) return <Drawer open={open} onClose={onClose} />;
-
   // 加载图片（getImageURL 现在直接返回 URL，不需要异步）
   useEffect(() => {
     if (order?.imageKey) {
@@ -120,7 +118,9 @@ export default function OrderDetail({ open, orderId, onClose }) {
 
   return (
     <Drawer title="订单详情" width={760} open={open} onClose={onClose}>
-      {order && (
+      {!order ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#8c8c8c' }}>加载中...</div>
+      ) : (
         <>
           {/* 关键指标高亮区 */}
           <div
