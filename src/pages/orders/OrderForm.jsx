@@ -23,7 +23,13 @@ import { num, round2, todayStr, yuan } from '../../utils/format';
 
 export default function OrderForm({ open, record, onClose, onSuccess }) {
   const formRef = useRef();
-  const [opts, setOpts] = useState(null);
+  // opts 初始给默认值，避免异步加载完成前渲染报错
+  const [opts, setOpts] = useState({
+    payMethods: [],
+    channels: [],
+    orderTitleHistory: [],
+    expenseTitleHistory: [],
+  });
 
   useEffect(() => {
     getOptions().then(setOpts);
