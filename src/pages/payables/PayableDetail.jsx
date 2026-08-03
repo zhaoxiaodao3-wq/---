@@ -81,6 +81,7 @@ export default function PayableDetail({ open, payable, onClose, onSettle }) {
         rowKey="id"
         size="small"
         pagination={false}
+        scroll={{ x: 'max-content' }}
         columns={subColumns}
         dataSource={payable.subItems || []}
         locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="无子事项" /> }}

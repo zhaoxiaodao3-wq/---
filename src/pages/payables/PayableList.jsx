@@ -202,6 +202,7 @@ export default function PayableList() {
         request={request}
         pagination={{ pageSize: 20, showSizeChanger: true }}
         search={{ labelWidth: 'auto' }}
+        scroll={{ x: 'max-content' }}
         toolBarRender={() => [
           <Button
             key="add"

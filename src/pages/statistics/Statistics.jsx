@@ -215,6 +215,7 @@ export default function Statistics() {
             <Table
               rowKey="dimKey"
               size="middle"
+              scroll={{ x: 'max-content' }}
               columns={columns}
               dataSource={rows}
               pagination={{ pageSize: 20, showSizeChanger: true }}

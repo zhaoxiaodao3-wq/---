@@ -202,6 +202,7 @@ export default function OrderDetail({ open, orderId, onClose }) {
               rowKey="id"
               size="small"
               pagination={false}
+              scroll={{ x: 'max-content' }}
               columns={expenseColumns}
               dataSource={expenses}
               locale={{ emptyText: '暂无关联支出' }}
@@ -224,6 +225,7 @@ export default function OrderDetail({ open, orderId, onClose }) {
               rowKey="id"
               size="small"
               pagination={false}
+              scroll={{ x: 'max-content' }}
               columns={payableColumns}
               dataSource={payables}
               locale={{ emptyText: '暂无关联应付款' }}
