@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Modal, Form, Radio, InputNumber, Checkbox, Input, Alert, Typography, message, Card, Statistic, Row, Col } from 'antd';
 import { addSettlement } from '../../services/payableService';
 import { payableRemaining } from '../../utils/calc';
@@ -6,11 +6,59 @@ import { num, yuan } from '../../utils/format';
 import { SETTLE_MODE_AMOUNT, SETTLE_MODE_ITEM } from '../../constants/options';
 import { COLORS } from '../../utils/theme';
 
+// 将 subItems 按供应商类型展开为独立结清事项
+function expandEntries(subItems = []) {
+  const entries = [];
+  for (const si of subItems) {
+    const id = si.id || `si_${Math.random().toString(36).slice(2, 8)}`;
+    const product = si.product || si.name || '';
+    if (num(si.goodsExpense) > 0) {
+      entries.push({
+        id: `${id}_goods`,
+        label: `${si.supplier || product || '货品供应商'}（货品供应商）`,
+        amount: num(si.goodsExpense),
+      });
+    }
+    if (num(si.materialExpense) > 0) {
+      entries.push({
+        id: `${id}_material`,
+        label: `${si.materialSupplier || product || '材料供应商'}（材料供应商）`,
+        amount: num(si.materialExpense),
+      });
+    }
+    if (num(si.laborExpense) > 0) {
+      entries.push({
+        id: `${id}_labor`,
+        label: `${si.worker || product || '工人'}（工人）`,
+        amount: num(si.laborExpense),
+      });
+    }
+    if (num(si.logisticsExpense) > 0) {
+      entries.push({
+        id: `${id}_logistics`,
+        label: `${si.logisticsProvider || product || '物流商'}（物流商）`,
+        amount: num(si.logisticsExpense),
+      });
+    }
+    if (num(si.otherExpense) > 0) {
+      entries.push({
+        id: `${id}_other`,
+        label: `${si.otherPayment || product || '其它付款'}（其它付款）`,
+        amount: num(si.otherExpense),
+      });
+    }
+  }
+  return entries;
+}
+
 export default function SettleModal({ open, payable, onClose, onSuccess }) {
   const [mode, setMode] = useState(SETTLE_MODE_AMOUNT);
   const [amount, setAmount] = useState(0);
   const [checked, setChecked] = useState([]);
   const [remark, setRemark] = useState('');
+
+  // 按供应商类型展开的结清事项列表
+  const entries = useMemo(() => expandEntries(payable?.subItems), [payable]);
 
   useEffect(() => {
     if (open) {
@@ -23,8 +71,8 @@ export default function SettleModal({ open, payable, onClose, onSuccess }) {
 
   if (!payable) return null;
   const remaining = payableRemaining(payable);
-  const hasItems = payable.subItems && payable.subItems.length > 0;
-  const itemSum = (payable.subItems || [])
+  const hasItems = entries.length > 0;
+  const itemSum = entries
     .filter((it) => checked.includes(it.id))
     .reduce((s, it) => s + num(it.amount), 0);
   const settleAmount = mode === SETTLE_MODE_AMOUNT ? num(amount) : round2local(itemSum);
@@ -49,7 +97,9 @@ export default function SettleModal({ open, payable, onClose, onSuccess }) {
     await addSettlement(payable.id, {
       amount: settleAmount,
       mode,
-      items: mode === SETTLE_MODE_ITEM ? payable.subItems.filter((it) => checked.includes(it.id)).map((it) => it.name) : [],
+      items: mode === SETTLE_MODE_ITEM
+        ? entries.filter((it) => checked.includes(it.id)).map((it) => it.label)
+        : [],
       remark,
     });
     message.success('结清成功');
@@ -112,15 +162,15 @@ export default function SettleModal({ open, payable, onClose, onSuccess }) {
             />
           </Form.Item>
         ) : (
-          <Form.Item label="勾选已结清的子事项">
+          <Form.Item label="勾选已结清的事项">
             <Checkbox.Group
               value={checked}
               onChange={setChecked}
               style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
             >
-              {(payable.subItems || []).map((it) => (
+              {entries.map((it) => (
                 <Checkbox key={it.id} value={it.id}>
-                  {it.name}（{yuan(it.amount)}）
+                  {it.label}（{yuan(it.amount)}）
                 </Checkbox>
               ))}
             </Checkbox.Group>

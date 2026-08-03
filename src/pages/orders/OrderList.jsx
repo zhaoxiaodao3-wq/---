@@ -7,6 +7,7 @@ import {
   EyeOutlined,
   EditOutlined,
   DeleteOutlined,
+  CheckOutlined,
   ShoppingCartOutlined,
   DollarOutlined,
   FundOutlined,
@@ -16,6 +17,7 @@ import {
 import SummaryBar from '../../components/SummaryBar';
 import OrderForm from './OrderForm';
 import OrderDetail from './OrderDetail';
+import SettleModal from '../payables/SettleModal';
 import { getOrders, deleteOrder } from '../../services/orderService';
 import { getExpenses } from '../../services/expenseService';
 import { getPayables } from '../../services/payableService';
@@ -39,10 +41,14 @@ export default function OrderList() {
   const [editing, setEditing] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [settlePayable, setSettlePayable] = useState(null);
+  const [settleOpen, setSettleOpen] = useState(false);
+  const payablesRef = useRef([]);
 
   const request = async (params) => {
     const expenses = await getExpenses();
     const payables = await getPayables();
+    payablesRef.current = payables;
     let data = await getOrders();
 
     if (params.dateRange?.length === 2) {
@@ -199,46 +205,64 @@ export default function OrderList() {
     {
       title: '操作',
       valueType: 'option',
-      width: 110,
+      width: 140,
       fixed: 'right',
-      render: (_, r) => [
-        <Tooltip key="detail" title="详情">
-          <Button
-            type="text"
-            size="small"
-            icon={<EyeOutlined style={{ color: COLORS.primary }} />}
-            onClick={() => {
-              setDetailId(r.id);
-              setDetailOpen(true);
-            }}
-          />
-        </Tooltip>,
-        <Tooltip key="edit" title="编辑">
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined style={{ color: COLORS.warning }} />}
-            onClick={() => {
-              setEditing(r);
-              setFormOpen(true);
-            }}
-          />
-        </Tooltip>,
-        <Popconfirm
-          key="del"
-          title="删除订单将级联删除其关联支出与应付款，确认？"
-          onConfirm={() => handleDelete(r.id)}
-        >
-          <Tooltip title="删除">
+      render: (_, r) => {
+        const payable = (payablesRef.current || []).find(
+          (p) => p.belongType === '订单支出' && p.orderId === r.id
+        );
+        const remaining = payable ? payableRemaining(payable) : 0;
+        return [
+          <Tooltip key="settle" title="应付款结清">
             <Button
               type="text"
               size="small"
-              danger
-              icon={<DeleteOutlined />}
+              icon={<CheckOutlined style={{ color: remaining > 0 ? COLORS.success : '#d9d9d9' }} />}
+              disabled={!payable || remaining <= 0}
+              onClick={() => {
+                setSettlePayable(payable);
+                setSettleOpen(true);
+              }}
             />
-          </Tooltip>
-        </Popconfirm>,
-      ],
+          </Tooltip>,
+          <Tooltip key="detail" title="详情">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined style={{ color: COLORS.primary }} />}
+              onClick={() => {
+                setDetailId(r.id);
+                setDetailOpen(true);
+              }}
+            />
+          </Tooltip>,
+          <Tooltip key="edit" title="编辑">
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined style={{ color: COLORS.warning }} />}
+              onClick={() => {
+                setEditing(r);
+                setFormOpen(true);
+              }}
+            />
+          </Tooltip>,
+          <Popconfirm
+            key="del"
+            title="删除订单将级联删除其关联支出与应付款，确认？"
+            onConfirm={() => handleDelete(r.id)}
+          >
+            <Tooltip title="删除">
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+              />
+            </Tooltip>
+          </Popconfirm>,
+        ];
+      },
     },
   ];
 
@@ -289,6 +313,15 @@ export default function OrderList() {
         onSuccess={() => actionRef.current?.reload()}
       />
       <OrderDetail open={detailOpen} orderId={detailId} onClose={() => setDetailOpen(false)} />
+      <SettleModal
+        open={settleOpen}
+        payable={settlePayable}
+        onClose={() => setSettleOpen(false)}
+        onSuccess={() => {
+          setSettleOpen(false);
+          actionRef.current?.reload();
+        }}
+      />
     </div>
   );
 }

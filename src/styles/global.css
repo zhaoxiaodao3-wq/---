@@ -20,6 +20,7 @@ body {
 /* ProLayout 微调 */
 .ant-pro-layout-content {
   padding-block: 0 !important;
+  padding-inline: 0 !important;
 }
 
 .ant-pro-global-header {
@@ -33,7 +34,7 @@ body {
 
 /* 内容容器内边距 */
 .page-container {
-  padding: 20px 24px;
+  padding: 20px 8px 20px 8px;
   min-height: 100%;
 }
 

@@ -49,9 +49,13 @@ const emptyItem = () => ({
   amount: 0,
   supplier: '',
   goodsExpense: 0,
+  materialSupplier: '',
   materialExpense: 0,
+  worker: '',
   laborExpense: 0,
+  logisticsProvider: '',
   logisticsExpense: 0,
+  otherPayment: '',
   otherExpense: 0,
 });
 
@@ -85,11 +89,11 @@ const itemColumns = (remove) => [
     ),
   },
   {
-    title: '单项金额',
+    title: '总金额',
     width: 110,
     render: (_, f) => (
       <Form.Item name={[f.name, 'amount']} style={{ margin: 0 }}>
-        <InputNumber disabled prefix="¥" style={{ width: '100%' }} />
+        <InputNumber min={0} precision={2} prefix="¥" style={{ width: '100%' }} />
       </Form.Item>
     ),
   },
@@ -103,7 +107,7 @@ const itemColumns = (remove) => [
     ),
   },
   {
-    title: '货品支出',
+    title: '货品应付款',
     width: 100,
     render: (_, f) => (
       <Form.Item name={[f.name, 'goodsExpense']} style={{ margin: 0 }}>
@@ -112,7 +116,16 @@ const itemColumns = (remove) => [
     ),
   },
   {
-    title: '材料支出',
+    title: '材料供应商',
+    width: 130,
+    render: (_, f) => (
+      <Form.Item name={[f.name, 'materialSupplier']} style={{ margin: 0 }}>
+        <Input placeholder="材料供应商" />
+      </Form.Item>
+    ),
+  },
+  {
+    title: '材料应付款',
     width: 100,
     render: (_, f) => (
       <Form.Item name={[f.name, 'materialExpense']} style={{ margin: 0 }}>
@@ -121,7 +134,16 @@ const itemColumns = (remove) => [
     ),
   },
   {
-    title: '人工支出',
+    title: '工人',
+    width: 130,
+    render: (_, f) => (
+      <Form.Item name={[f.name, 'worker']} style={{ margin: 0 }}>
+        <Input placeholder="工人" />
+      </Form.Item>
+    ),
+  },
+  {
+    title: '工人应付款',
     width: 100,
     render: (_, f) => (
       <Form.Item name={[f.name, 'laborExpense']} style={{ margin: 0 }}>
@@ -130,7 +152,16 @@ const itemColumns = (remove) => [
     ),
   },
   {
-    title: '物流支出',
+    title: '物流商',
+    width: 130,
+    render: (_, f) => (
+      <Form.Item name={[f.name, 'logisticsProvider']} style={{ margin: 0 }}>
+        <Input placeholder="物流商" />
+      </Form.Item>
+    ),
+  },
+  {
+    title: '物流应付款',
     width: 100,
     render: (_, f) => (
       <Form.Item name={[f.name, 'logisticsExpense']} style={{ margin: 0 }}>
@@ -139,7 +170,16 @@ const itemColumns = (remove) => [
     ),
   },
   {
-    title: '其他支出',
+    title: '其它付款',
+    width: 130,
+    render: (_, f) => (
+      <Form.Item name={[f.name, 'otherPayment']} style={{ margin: 0 }}>
+        <Input placeholder="其它付款" />
+      </Form.Item>
+    ),
+  },
+  {
+    title: '其它付款金额',
     width: 100,
     render: (_, f) => (
       <Form.Item name={[f.name, 'otherExpense']} style={{ margin: 0 }}>
@@ -228,9 +268,13 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
           ...it,
           supplier: sub.supplier || it.supplier,
           goodsExpense: sub.goodsExpense || 0,
+          materialSupplier: sub.materialSupplier || '',
           materialExpense: sub.materialExpense || 0,
+          worker: sub.worker || '',
           laborExpense: sub.laborExpense || 0,
+          logisticsProvider: sub.logisticsProvider || '',
           logisticsExpense: sub.logisticsExpense || 0,
+          otherPayment: sub.otherPayment || '',
           otherExpense: sub.otherExpense || 0,
         };
       });
@@ -240,24 +284,45 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 
-  // 数量/单价变化 → 自动算单项金额；订单支出金额变化 → 平均摊到各子项其他支出
+  // 数量/单价/总金额 联动：填单价→自动算总金额，填总金额→自动算单价
   const onValuesChange = (changed, all) => {
     if (syncing.current) return;
     syncing.current = true;
     try {
       const items = all.items || [];
+      const changedItems = changed.items || [];
+
       items.forEach((it, i) => {
-        const amt = round2(num(it?.qty) * num(it?.price));
-        if (num(it?.amount) !== amt) {
-          formRef.current?.setFieldValue(['items', i, 'amount'], amt);
+        const changedItem = changedItems[i];
+        if (!changedItem) return;
+
+        const qty = num(it?.qty);
+        const price = num(it?.price);
+        const amount = num(it?.amount);
+
+        if ('amount' in changedItem && qty > 0) {
+          // 总金额变化 → 自动算单价
+          const newPrice = round2(amount / qty);
+          formRef.current?.setFieldValue(['items', i, 'price'], newPrice);
+        } else if ('price' in changedItem || 'qty' in changedItem) {
+          // 单价或数量变化 → 自动算总金额
+          const newAmt = round2(qty * price);
+          formRef.current?.setFieldValue(['items', i, 'amount'], newAmt);
         }
       });
+
       if ('orderExpenseAmount' in changed) {
         const n = items.length || 1;
         const share = round2(num(all.orderExpenseAmount) / n);
         items.forEach((_, i) => {
           formRef.current?.setFieldValue(['items', i, 'otherExpense'], share);
         });
+      }
+
+      // items 变化时，客户付款金额默认跟销售总金额一样
+      if (changed.items) {
+        const totalAmt = round2(items.reduce((s, it) => s + num(it?.amount), 0));
+        formRef.current?.setFieldValue('customerPaid', totalAmt);
       }
     } finally {
       syncing.current = false;
@@ -269,12 +334,16 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
       product: (it.product || '').trim(),
       qty: num(it.qty),
       price: round2(num(it.price)),
-      amount: round2(num(it.qty) * num(it.price)),
+      amount: round2(num(it.amount)),
       supplier: (it.supplier || '').trim(),
       goodsExpense: round2(num(it.goodsExpense)),
+      materialSupplier: (it.materialSupplier || '').trim(),
       materialExpense: round2(num(it.materialExpense)),
+      worker: (it.worker || '').trim(),
       laborExpense: round2(num(it.laborExpense)),
+      logisticsProvider: (it.logisticsProvider || '').trim(),
       logisticsExpense: round2(num(it.logisticsExpense)),
+      otherPayment: (it.otherPayment || '').trim(),
       otherExpense: round2(num(it.otherExpense)),
     }));
     const totalAmount = round2(items.reduce((s, i) => s + i.amount, 0));
@@ -311,9 +380,13 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
           productPrice: it.price,
           supplier: it.supplier,
           goodsExpense: it.goodsExpense,
+          materialSupplier: it.materialSupplier,
           materialExpense: it.materialExpense,
+          worker: it.worker,
           laborExpense: it.laborExpense,
+          logisticsProvider: it.logisticsProvider,
           logisticsExpense: it.logisticsExpense,
+          otherPayment: it.otherPayment,
           otherExpense: it.otherExpense,
           amount: expenseTotal,
         };
@@ -338,7 +411,7 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
       await upsertPayable(payable);
     }
 
-    await pushOrderTitleHistory(order.title);
+    if (order.title) await pushOrderTitleHistory(order.title);
     message.success(editing ? '订单已更新' : '订单已创建');
     onSuccess?.();
     onClose?.();
@@ -389,8 +462,7 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
           <ProFormText
             name="title"
             label="订单标题"
-            placeholder="输入标题"
-            rules={[{ required: true, message: '请输入订单标题' }]}
+            placeholder="选填"
             extra={
               opts.orderTitleHistory.length > 0 ? (
                 <Space size={[4, 4]} wrap style={{ marginTop: 4 }}>
@@ -418,10 +490,10 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
       <Divider style={{ margin: '12px 0 8px' }} />
       <div className="form-section-title">客户与收款</div>
       <Row gutter={16}>
-        <Col span={8}>
+        <Col span={6}>
           <ProFormText name="customerName" label="客户名称" placeholder="选填" />
         </Col>
-        <Col span={8}>
+        <Col span={6}>
           <Form.Item
             name="channel"
             label="联系渠道"
@@ -430,7 +502,7 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
             <Select options={CHANNEL_OPTIONS} />
           </Form.Item>
         </Col>
-        <Col span={8}>
+        <Col span={6}>
           <Form.Item
             name="payMethod"
             label="收款方式"
@@ -443,13 +515,18 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
             />
           </Form.Item>
         </Col>
+        <Col span={6}>
+          <Form.Item name="customerPaid" label="客户付款金额">
+            <InputNumber min={0} precision={2} prefix="¥" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
       </Row>
 
       {/* —— 销售信息 + 应付明细（简道云式可编辑表格） —— */}
       <Divider style={{ margin: '12px 0 8px' }} />
       <div className="form-section-title">销售信息 / 应付明细</div>
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-        一行一条记录：前半为销售（货品/数量/单价，单项金额自动算），后半为应付支出（供应商/货品/材料/人工/物流/其他）。窗口缩小时表格内部横向滚动。
+        一行一条记录：前半为销售（货品/数量/单价，单项金额自动算），后半为应付明细（供应商/应付款配对）。窗口缩小时表格内部横向滚动。
       </Typography.Text>
       <Form.List name="items">
         {(fields, { add, remove }) => (
@@ -475,13 +552,8 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
         )}
       </Form.List>
 
-      {/* 客户付款金额 + 销售总金额 + 应收余额 */}
+      {/* 销售总金额 + 应收余额 */}
       <Row gutter={16} style={{ marginTop: 12 }}>
-        <Col span={8}>
-          <Form.Item name="customerPaid" label="客户付款金额">
-            <InputNumber min={0} precision={2} prefix="¥" style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
         <Col span={8}>
           <Form.Item
             noStyle
@@ -525,10 +597,10 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
         </Col>
       </Row>
 
-      {/* ===== 订单支出（分摊到子项其他支出） ===== */}
+      {/* ===== 订单支出（分摊到子项其它付款金额） ===== */}
       <Divider style={{ margin: '12px 0 8px' }} />
       <div className="form-section-title">订单支出</div>
-      <Card size="small" title="订单支出（分摊到每行「其他支出」）" style={{ marginBottom: 12 }}>
+      <Card size="small" title="订单支出（分摊到每行「其它付款金额」）" style={{ marginBottom: 12 }}>
         <Row gutter={16}>
           <Col span={8}>
             <Form.Item name="orderExpenseMatter" label="事项">
@@ -547,7 +619,7 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
           </Col>
         </Row>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          金额将平均分摊到每一行的「其他支出」
+          金额将平均分摊到每一行的「其它付款金额」
         </Typography.Text>
       </Card>
 
@@ -573,7 +645,7 @@ export default function OrderForm({ open, record, onClose, onSuccess }) {
               <Space>
                 <InputNumber value={round2(sum)} disabled prefix="¥" style={{ width: 160 }} />
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  （货品+材料+人工+物流+其他 支出汇总）
+                  （货品+材料+工人+物流+其它 应付款汇总）
                 </Typography.Text>
               </Space>
             </Form.Item>
