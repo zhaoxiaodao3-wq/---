@@ -1,4 +1,4 @@
-# 前端部署文档（sell-front）
+# 前端部署文档（sell-front）1
 
 > 目标：把本前端项目构建为静态站点并部署到宝塔 `web.mia-fly.cn`。
 
